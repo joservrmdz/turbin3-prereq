@@ -3,3 +3,4 @@
 /.idea/turbin3.iml
 /.idea/vcs.xml
 /.idea/.gitignore
+*wallet.json
