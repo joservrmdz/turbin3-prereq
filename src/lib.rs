@@ -1,21 +1,20 @@
 mod programs;
 
-use crate::programs::wba_prereq::{WbaPrereqProgram, CompleteArgs, UpdateArgs};
-
-
 #[cfg(test)]
 mod tests {
-    use std::io;
-    use std::io::BufRead;
+
+    use bs58;
+    use std::io::{self, BufRead};
+    use std::str::FromStr;
 
     use solana_client::rpc_client::RpcClient;
     use solana_program::{pubkey::Pubkey, system_instruction::transfer, system_program};
     use solana_sdk::{
         message::Message,
-        signature::{Keypair, Signer, read_keypair_file},
+        signature::{read_keypair_file, Keypair, Signer},
         transaction::Transaction,
     };
-    use std::str::FromStr;
+
     use crate::programs::wba_prereq::{CompleteArgs, WbaPrereqProgram};
 
     const RPC_URL: &str = "https://api.devnet.solana.com";
@@ -24,7 +23,10 @@ mod tests {
     fn keygen() {
         // Create a new keypair
         let kp = Keypair::new();
-        println!("You've generated a new Solana wallet: {}", kp.pubkey().to_string());
+        println!(
+            "You've generated a new Solana wallet: {}",
+            kp.pubkey().to_string()
+        );
         println!("");
         println!("To save your wallet, copy and paste the following into a JSON file:");
         println!("{:?}", kp.to_bytes())
@@ -38,9 +40,12 @@ mod tests {
         match client.request_airdrop(&keypair.pubkey(), 2_000_000_000u64) {
             Ok(s) => {
                 println!("Success! Check out your TX here:");
-                println!("https://explorer.solana.com/tx/{}?cluster=devnet", s.to_string());
+                println!(
+                    "https://explorer.solana.com/tx/{}?cluster=devnet",
+                    s.to_string()
+                );
             }
-            Err(e) => println!("Oops, something went wrong: {}", e.to_string())
+            Err(e) => println!("Oops, something went wrong: {}", e.to_string()),
         };
     }
 
@@ -67,15 +72,12 @@ mod tests {
             .get_latest_blockhash()
             .expect("Failed to get recent blockhash");
 
-        let transaction = Transaction::new_signed_with_payer(
-            &[transfer(
-                &keypair.pubkey(),
-                &to_pubkey,
-                1_000_000,
-            )],
+        let _transaction = Transaction::new_signed_with_payer(
+            &[transfer(&keypair.pubkey(), &to_pubkey, 1_000_000)],
             Some(&keypair.pubkey()),
             &vec![&keypair],
-            recent_blockhash);
+            recent_blockhash,
+        );
 
         // Get balance of dev wallet
         let balance = rpc_client
@@ -86,11 +88,7 @@ mod tests {
 
         // Create a test transaction to calculate fees
         let message = Message::new_with_blockhash(
-            &[transfer(
-                &keypair.pubkey(),
-                &to_pubkey,
-                balance,
-            )],
+            &[transfer(&keypair.pubkey(), &to_pubkey, balance)],
             Some(&keypair.pubkey()),
             &recent_blockhash,
         );
@@ -103,11 +101,7 @@ mod tests {
 
         // Deduct fee from lamports amount and create a TX with correct balance
         let transaction = Transaction::new_signed_with_payer(
-            &[transfer(
-                &keypair.pubkey(),
-                &to_pubkey,
-                balance - fee,
-            )],
+            &[transfer(&keypair.pubkey(), &to_pubkey, balance - fee)],
             Some(&keypair.pubkey()),
             &vec![&keypair],
             recent_blockhash,
@@ -117,7 +111,6 @@ mod tests {
         let signature = rpc_client
             .send_and_confirm_transaction(&transaction)
             .expect("Failed to send transaction");
-
 
         // Print our transaction out
         println!(
@@ -140,10 +133,17 @@ mod tests {
     fn wallet_to_base58() {
         println!("Input your private key as a wallet file byte array:");
         let stdin = io::stdin();
-        let handle = stdin.lock();
-        let wallet =
-            handle.lines().next().unwrap().unwrap().trim_start_matches('[').trim_end_matches(']').split(',')
-                .map(|s| s.trim().parse::<u8>().unwrap()).collect::<Vec<u8>>();
+        let wallet = stdin
+            .lock()
+            .lines()
+            .next()
+            .unwrap()
+            .unwrap()
+            .trim_start_matches('[')
+            .trim_end_matches(']')
+            .split(',')
+            .map(|s| s.trim().parse::<u8>().unwrap())
+            .collect::<Vec<u8>>();
         println!("Your private key is:");
         let base58 = bs58::encode(wallet).into_string();
         println!("{:?}", base58);
@@ -156,12 +156,14 @@ mod tests {
         // Let's define our accounts
         let signer = read_keypair_file("wba-wallet.json").expect("Couldn't find wallet file");
 
-        let prereq = WbaPrereqProgram::derive_program_address(&[b"prereq",
-            signer.pubkey().to_bytes().as_ref()]);
+        let prereq = WbaPrereqProgram::derive_program_address(&[
+            b"prereq",
+            signer.pubkey().to_bytes().as_ref(),
+        ]);
 
         // Define our instruction data
         let args = CompleteArgs {
-            github: b"joservrmdz".to_vec()
+            github: b"joservrmdz".to_vec(),
         };
 
         // Get recent blockhash
@@ -183,7 +185,9 @@ mod tests {
             .send_and_confirm_transaction(&transaction)
             .expect("Failed to send transaction");
         // Print our transaction out
-        println!("Success! Check out your TX here: https://explorer.solana.com/tx/{}/?cluster=devnet",
-                 signature);
+        println!(
+            "Success! Check out your TX here: https://explorer.solana.com/tx/{}/?cluster=devnet",
+            signature
+        );
     }
 }
